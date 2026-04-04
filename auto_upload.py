@@ -2,9 +2,11 @@ import argparse
 import base64
 import os
 import pickle
+import smtplib
 import shutil
 import time
 from datetime import datetime
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Optional
 
@@ -80,6 +82,104 @@ def build_description(now: datetime) -> str:
 def get_tags() -> list[str]:
     raw_tags = get_env("YOUTUBE_TAGS", "shorts,meme,funny,viral")
     return [tag.strip() for tag in raw_tags.split(",") if tag.strip()]
+
+
+def should_upload_to_youtube() -> bool:
+    return any(
+        [
+            TOKEN_PATH.exists(),
+            CLIENT_SECRETS_PATH.exists(),
+            os.getenv("YOUTUBE_TOKEN_PICKLE_B64", "").strip(),
+            os.getenv("YOUTUBE_CLIENT_SECRETS_JSON", "").strip(),
+        ]
+    )
+
+
+def should_send_email() -> bool:
+    required = ["EMAIL_TO", "SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD"]
+    return all(os.getenv(name, "").strip() for name in required)
+
+
+def get_github_run_url() -> str:
+    explicit_url = os.getenv("GITHUB_RUN_URL", "").strip()
+    if explicit_url:
+        return explicit_url
+
+    server_url = os.getenv("GITHUB_SERVER_URL", "").strip()
+    repository = os.getenv("GITHUB_REPOSITORY", "").strip()
+    run_id = os.getenv("GITHUB_RUN_ID", "").strip()
+    if server_url and repository and run_id:
+        return f"{server_url}/{repository}/actions/runs/{run_id}"
+    return ""
+
+
+def build_email_message(
+    video_path: Path, title: str, youtube_url: str = ""
+) -> EmailMessage:
+    max_attachment_mb = int(get_env("EMAIL_ATTACHMENT_MAX_MB", "20"))
+    max_attachment_bytes = max_attachment_mb * 1024 * 1024
+    run_url = get_github_run_url()
+    artifact_name = get_env("GITHUB_ARTIFACT_NAME", "generated-video")
+    video_size_mb = video_path.stat().st_size / (1024 * 1024)
+    can_attach = video_path.stat().st_size <= max_attachment_bytes
+
+    body_lines = [
+        f"Your meme short is ready: {video_path.name}",
+        f"Size: {video_size_mb:.2f} MB",
+    ]
+    if youtube_url:
+        body_lines.append(f"YouTube: {youtube_url}")
+
+    if can_attach:
+        body_lines.append("")
+        body_lines.append("The video is attached to this email.")
+    else:
+        body_lines.append("")
+        body_lines.append(
+            f"The video is larger than the email attachment limit of {max_attachment_mb} MB."
+        )
+        if run_url:
+            body_lines.append(
+                f"Download it from this GitHub Actions run once the artifact uploads: {run_url}"
+            )
+            body_lines.append(f"Artifact name: {artifact_name}")
+
+    message = EmailMessage()
+    message["Subject"] = f"{get_env('EMAIL_SUBJECT_PREFIX', 'Meme Short Ready')} - {title}"
+    message["From"] = get_env("EMAIL_FROM", get_env("SMTP_USERNAME", ""))
+    message["To"] = get_env("EMAIL_TO", "")
+    message.set_content("\n".join(body_lines))
+
+    if can_attach:
+        message.add_attachment(
+            video_path.read_bytes(),
+            maintype="video",
+            subtype="mp4",
+            filename=video_path.name,
+        )
+
+    return message
+
+
+def send_video_email(video_path: Path, title: str, youtube_url: str = "") -> None:
+    if not should_send_email():
+        print("Skipping email delivery because SMTP or recipient settings are missing.")
+        return
+
+    message = build_email_message(video_path, title, youtube_url)
+    smtp_host = get_env("SMTP_HOST", "")
+    smtp_port = int(get_env("SMTP_PORT", "587"))
+    smtp_username = get_env("SMTP_USERNAME", "")
+    smtp_password = get_env("SMTP_PASSWORD", "")
+    use_tls = get_env("SMTP_USE_TLS", "true").lower() != "false"
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=60) as server:
+        if use_tls:
+            server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(message)
+
+    print(f"Email sent to {get_env('EMAIL_TO', '')}")
 
 
 def get_authenticated_service():
@@ -159,11 +259,20 @@ def run_single_cycle() -> Optional[str]:
     archived_video = archive_generated_video(STATIC_VIDEO_PATH)
     title = build_title(datetime.now())
     description = build_description(datetime.now())
-    video_id = upload_video(archived_video, title, description)
-    print(
-        f"[{datetime.now().isoformat(timespec='seconds')}] Uploaded {archived_video.name} "
-        f"as https://www.youtube.com/watch?v={video_id}"
-    )
+    youtube_url = ""
+    video_id = None
+
+    if should_upload_to_youtube():
+        video_id = upload_video(archived_video, title, description)
+        youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+        print(
+            f"[{datetime.now().isoformat(timespec='seconds')}] Uploaded {archived_video.name} "
+            f"as {youtube_url}"
+        )
+    else:
+        print("Skipping YouTube upload because YouTube credentials are not configured.")
+
+    send_video_email(archived_video, title, youtube_url)
     return video_id
 
 

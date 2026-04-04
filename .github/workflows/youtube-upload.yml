@@ -17,6 +17,17 @@ jobs:
       YOUTUBE_TITLE_PREFIX: ${{ vars.YOUTUBE_TITLE_PREFIX }}
       YOUTUBE_DESCRIPTION: ${{ vars.YOUTUBE_DESCRIPTION }}
       YOUTUBE_TAGS: ${{ vars.YOUTUBE_TAGS }}
+      EMAIL_TO: ${{ vars.EMAIL_TO }}
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+      EMAIL_SUBJECT_PREFIX: ${{ vars.EMAIL_SUBJECT_PREFIX }}
+      EMAIL_ATTACHMENT_MAX_MB: ${{ vars.EMAIL_ATTACHMENT_MAX_MB }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_USE_TLS: ${{ vars.SMTP_USE_TLS }}
+      GITHUB_ARTIFACT_NAME: generated-video
+      GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -36,3 +47,12 @@ jobs:
 
       - name: Run upload job
         run: python auto_upload.py --run-once
+
+      - name: Upload generated video artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-video
+          path: static/final_video.mp4
+          if-no-files-found: ignore
+          retention-days: 7
