@@ -1,0 +1,8 @@
+.env
+client_secrets.json
+token.pickle
+uploads/
+temp/
+static/final_video.mp4
+static/final_video_*.mp4
+__pycache__/

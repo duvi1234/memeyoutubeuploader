@@ -1,0 +1,8 @@
+requests
+Pillow==9.5.0
+moviepy==1.0.3
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+flask
