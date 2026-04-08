@@ -14,6 +14,7 @@ BACKGROUND_VIDEO = os.path.join(ASSETS_DIR, "background_video.mp4")
 MUSIC_FILE = os.path.join(ASSETS_DIR, "music.mp3")
 FONT_FILE = os.path.join(ASSETS_DIR, "IMPACT.TTF")
 OUTPUT_VIDEO = os.path.join(OUTPUT_DIR, "final_video.mp4")
+VIDEO_DURATION_SECONDS = 6
 
 # Ensure output directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -33,7 +34,7 @@ def create_meme_short(meme_text):
     print("Generating meme short...")
     
     # Load background video
-    video = VideoFileClip(BACKGROUND_VIDEO)
+    video = VideoFileClip(BACKGROUND_VIDEO).subclip(0, VIDEO_DURATION_SECONDS)
 
     # Load music (optional)
     music = AudioFileClip(MUSIC_FILE).subclip(0, video.duration)

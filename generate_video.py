@@ -21,6 +21,7 @@ BACKGROUND_MUSIC_PATH = "assets/background_music.mp3"
 OUTPUT_PATH = "static/final_video.mp4"
 
 MEME_API_URL = "https://meme-api.com/gimme"
+VIDEO_DURATION_SECONDS = 6
 
 def fetch_memes(count=2):
     print("📥 Fetching memes...")
@@ -49,8 +50,8 @@ def generate_video():
     memes = fetch_memes(2)
     print("🧠 Meme Texts:", [m["title"] for m in memes])
 
-    video = VideoFileClip(BACKGROUND_VIDEO_PATH).subclip(0, 15)
-    audio = AudioFileClip(BACKGROUND_MUSIC_PATH).subclip(0, 15)
+    video = VideoFileClip(BACKGROUND_VIDEO_PATH).subclip(0, VIDEO_DURATION_SECONDS)
+    audio = AudioFileClip(BACKGROUND_MUSIC_PATH).subclip(0, VIDEO_DURATION_SECONDS)
 
     meme_width = video.w * 0.8
     meme_height = video.h * 0.50

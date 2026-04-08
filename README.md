@@ -1,309 +1,240 @@
-# Meme Shorts Generator 🎥😂
+# Meme Shorts YouTube Auto Uploader
 
-This is a fully automated web app that generates funny meme videos using trending memes, a background video, and music. You can generate and download a ready-to-upload meme short (MP4) in a single click!
+This project generates short meme videos and can upload them to YouTube automatically. The current generator creates 6-second MP4 shorts from meme images, a background video, and background music.
 
-## 🚀 Features
+## Features
 
-- Auto-fetches trending memes via API
-- Overlays memes on a background video with music
-- Responsive web interface
-- Download button appears after generation
-- Replaces old video automatically
-- Mobile-friendly UI
-- Ready for deployment on Render
+- Generates 6-second meme shorts with MoviePy.
+- Fetches meme images from `https://meme-api.com/gimme`.
+- Uses `assets/background_video.mp4` and `assets/background_music.mp3`.
+- Provides a Flask web page for generating, previewing, and downloading `static/final_video.mp4`.
+- Includes `auto_upload.py` for scheduled YouTube uploads.
+- Runs automatically every 30 minutes through GitHub Actions.
+- Can send the generated MP4 by email when SMTP settings are configured.
+- Uploads the generated video as a GitHub Actions artifact for 7 days.
 
-## 🛠 Tech Stack
+## Project Structure
 
-- Python 🐍 (Flask, MoviePy)
-- HTML5 + CSS3 + JavaScript
-- Meme API (`https://meme-api.com/gimme`)
-- Responsive Design
+```text
+.
+|-- .github/workflows/youtube-upload.yml
+|-- assets/
+|   |-- IMPACT.TTF
+|   |-- background_music.mp3
+|   `-- background_video.mp4
+|-- templates/
+|   `-- index.html
+|-- app.py
+|-- auto_upload.py
+|-- generate_video_portable.py
+|-- generate_video.py
+|-- generate_meme_short.py
+|-- meme_api.py
+|-- requirements.txt
+|-- render.yaml
+`-- .env.example
+```
 
-## 📁 Folder Structure
+Generated files are intentionally ignored by Git:
 
-project/
-│
-├── assets/
-│ ├── background_video.mp4
-│ └── background_music.mp3
-│
-├── web/
-│ ├── index.html
-│ └── script.js
-│
-├── app.py
-├── generate_video.py
-├── requirements.txt
-├── README.md
-└── web/final_video.mp4 # Generated output
+- `static/final_video.mp4`
+- `uploads/`
+- `temp/`
+- `.env`
+- `client_secrets.json`
+- `token.pickle`
 
-bash
-Copy
-Edit
+## Local Setup
 
-## 🖥️ Local Setup
+1. Install Python dependencies:
 
-1. **Clone the Repo**
-   ```bash
-   git clone https://github.com/your-username/meme-shorts-generator.git
-   cd meme-shorts-generator
-Install Dependencies
-
-bash
-Copy
-Edit
+```bash
 pip install -r requirements.txt
-Run the App
+```
 
-bash
-Copy
-Edit
+2. Make sure these assets exist:
+
+```text
+assets/background_video.mp4
+assets/background_music.mp3
+```
+
+3. Start the Flask app:
+
+```bash
 python app.py
-Access in Browser
-Open http://127.0.0.1:5000 in your browser.
+```
 
-🌐 Deploy on Render
-Create a new Web Service on Render
+4. Open the app:
 
-Connect your GitHub repo
+```text
+http://127.0.0.1:5000
+```
 
-Set the start command: gunicorn app:app
+Use the page to generate a short, preview it, and download the MP4.
 
-Use Python 3.10+ environment
+## Generate One Video
 
-Add requirements.txt and render.yaml if needed
+To generate a video from the command line without opening the web app:
 
-📦 Requirements
-Python 3.8+
+```bash
+python generate_video_portable.py
+```
 
-moviepy, requests, flask
+The output is written to:
 
-📜 License
-MIT License
+```text
+static/final_video.mp4
+```
 
-🎬 Created for fun, reels, and rapid meme delivery!
-
-yaml
-Copy
-Edit
-
----
-
-Let me know if you want a `render.yaml` or deployment screenshot too.
-
-## YouTube Automation
-
-This project now includes [`auto_upload.py`](/d:/meme_shorts_project/auto_upload.py), which:
-
-- generates a new meme short
-- copies the rendered file into an `uploads/` archive
-- uploads it to YouTube
-- repeats every 2 hours by default
-
-### One-time setup
+## YouTube Upload Setup
 
 1. Create a Google Cloud project.
 2. Enable the YouTube Data API v3.
 3. Create an OAuth Desktop App client.
-4. Download the OAuth JSON file and save it in the project root as `client_secrets.json`.
-5. Copy `.env.example` to `.env` and update the values you want.
+4. Download the OAuth JSON file.
+5. Save it in the project root as:
 
-### Run one upload now
+```text
+client_secrets.json
+```
+
+6. Copy `.env.example` to `.env` and adjust values as needed.
+7. Run one upload locally:
 
 ```bash
 python auto_upload.py --run-once
 ```
 
-The first run will open a browser window so you can sign in to the YouTube channel and grant upload access. After that, the OAuth token is stored in `token.pickle`.
+The first run opens a browser window so you can sign in to the YouTube channel and grant upload access. After authorization, the OAuth token is saved as `token.pickle`.
 
-### Run continuously every 2 hours
+## Local Scheduler
+
+Run continuously with the default 30-minute interval:
 
 ```bash
 python auto_upload.py
 ```
 
-You can change the interval with either:
+Change the interval with either:
 
-- `UPLOAD_INTERVAL_HOURS=2` in `.env`
-- `python auto_upload.py --interval-hours 2`
-
-### Windows recommendation
-
-If you want this to keep running automatically even after reboots, the most reliable setup on Windows is Task Scheduler running:
-
-```bash
-python auto_upload.py --run-once
-```
-
-every 2 hours.
-
-## GitHub Actions Setup
-
-This repo now includes the workflow [`youtube-upload.yml`](/d:/meme_shorts_project/.github/workflows/youtube-upload.yml), which can:
-
-- run manually from the GitHub Actions tab
-- run automatically every 2 hours at `0 */2 * * *` UTC
-- generate a meme video
-- optionally upload it to YouTube
-- email the MP4 if it is small enough
-- email a GitHub Actions run link if the MP4 is too large to attach
-
-### Files used by the automation
-
-- [`auto_upload.py`](/d:/meme_shorts_project/auto_upload.py): main automation script
-- [`generate_video_portable.py`](/d:/meme_shorts_project/generate_video_portable.py): Linux-friendly video generator for GitHub Actions
-- [`app.py`](/d:/meme_shorts_project/app.py): Flask app, now using the portable generator
-- [`youtube-upload.yml`](/d:/meme_shorts_project/.github/workflows/youtube-upload.yml): scheduled GitHub Actions workflow
-- [`.env.example`](/d:/meme_shorts_project/.env.example): example config values
-
-## Full Step-By-Step Implementation
-
-### 1. Prepare the project locally
-
-1. Make sure these files exist in your project:
-   - [`assets/background_video.mp4`](/d:/meme_shorts_project/assets/background_video.mp4)
-   - [`assets/background_music.mp3`](/d:/meme_shorts_project/assets/background_music.mp3)
-2. Install Python dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-3. If you want local testing, start the app or run the automation once:
-
-```bash
-python app.py
+```env
+UPLOAD_INTERVAL_MINUTES=30
 ```
 
 or:
 
 ```bash
-python auto_upload.py --run-once
+python auto_upload.py --interval-minutes 30
 ```
 
-### 2. Create a GitHub repository
+The older `--interval-hours` flag still works, but `--interval-minutes` is preferred.
 
-1. Create a new repository on GitHub.
-2. Push this project to that repository.
-3. Make sure these files are committed:
-   - [`auto_upload.py`](/d:/meme_shorts_project/auto_upload.py)
-   - [`generate_video_portable.py`](/d:/meme_shorts_project/generate_video_portable.py)
-   - [`app.py`](/d:/meme_shorts_project/app.py)
-   - [`youtube-upload.yml`](/d:/meme_shorts_project/.github/workflows/youtube-upload.yml)
-   - [`.env.example`](/d:/meme_shorts_project/.env.example)
-
-### 3. Set up email delivery
-
-This is the easiest way to use the project because YouTube credentials are optional.
-
-1. Open your GitHub repository.
-2. Go to `Settings` -> `Secrets and variables` -> `Actions`.
-3. Under `Secrets`, add:
-   - `SMTP_HOST`
-   - `SMTP_USERNAME`
-   - `SMTP_PASSWORD`
-4. Under `Variables`, add:
-   - `EMAIL_TO`
-   - `EMAIL_FROM`
-   - `EMAIL_SUBJECT_PREFIX`
-   - `EMAIL_ATTACHMENT_MAX_MB`
-   - `SMTP_PORT`
-   - `SMTP_USE_TLS`
-
-Recommended values:
-
-- `EMAIL_TO`: your email address
-- `EMAIL_FROM`: usually the same as your SMTP username
-- `EMAIL_SUBJECT_PREFIX`: `Meme Short Ready`
-- `EMAIL_ATTACHMENT_MAX_MB`: `20`
-- `SMTP_PORT`: `587`
-- `SMTP_USE_TLS`: `true`
-
-Example for Gmail SMTP:
-
-- `SMTP_HOST`: `smtp.gmail.com`
-- `SMTP_PORT`: `587`
-- `SMTP_USERNAME`: your Gmail address
-- `SMTP_PASSWORD`: a Gmail App Password, not your normal Gmail password
-
-### 4. Optional: set up YouTube upload
-
-If you only want the email feature, skip this section.
-
-If you also want YouTube uploads, you still need Google OAuth credentials.
-
-1. Put `client_secrets.json` in the project root on your local machine.
-2. Run this locally one time:
+On Windows, use Task Scheduler if you want uploads to continue after reboots. Configure it to run:
 
 ```bash
 python auto_upload.py --run-once
 ```
 
-3. Sign in with your Google account in the browser window.
-4. After that, a local `token.pickle` file will be created.
-5. In GitHub `Settings` -> `Secrets and variables` -> `Actions`, add this secret:
-   - `YOUTUBE_CLIENT_SECRETS_JSON`
-6. Paste the full contents of `client_secrets.json` into that secret.
-7. Convert `token.pickle` to base64 in PowerShell:
+every 30 minutes.
+
+## GitHub Actions Automation
+
+The workflow at `.github/workflows/youtube-upload.yml` can be run manually and is also scheduled for:
+
+```yaml
+*/30 * * * *
+```
+
+That means one run every 30 minutes in UTC. GitHub schedules can be delayed slightly.
+
+The workflow:
+
+- checks out the repository
+- installs Python and FFmpeg
+- installs `requirements.txt`
+- runs `python auto_upload.py --run-once`
+- uploads `static/final_video.mp4` as an artifact
+- sends email if SMTP settings are configured
+- uploads to YouTube if YouTube credentials are configured
+
+## GitHub Secrets And Variables
+
+For YouTube uploads, add these GitHub Actions secrets:
+
+- `YOUTUBE_CLIENT_SECRETS_JSON`: the full contents of `client_secrets.json`
+- `YOUTUBE_TOKEN_PICKLE_B64`: base64-encoded contents of `token.pickle`
+
+Convert `token.pickle` to base64 in PowerShell:
 
 ```powershell
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("token.pickle"))
 ```
 
-8. Create another GitHub secret:
-   - `YOUTUBE_TOKEN_PICKLE_B64`
-9. Paste the base64 output into that secret.
-10. Optional GitHub variables for YouTube:
-   - `YOUTUBE_PRIVACY_STATUS`
-   - `YOUTUBE_CATEGORY_ID`
-   - `YOUTUBE_TITLE_PREFIX`
-   - `YOUTUBE_DESCRIPTION`
-   - `YOUTUBE_TAGS`
+Optional YouTube variables:
 
-Recommended values:
+- `YOUTUBE_PRIVACY_STATUS`: default `private`
+- `YOUTUBE_CATEGORY_ID`: default `24`
+- `YOUTUBE_TITLE_PREFIX`: default `Meme Short`
+- `YOUTUBE_DESCRIPTION`: default `Auto-generated meme short. #shorts #meme #funny`
+- `YOUTUBE_TAGS`: default `shorts,meme,funny,viral`
 
-- `YOUTUBE_PRIVACY_STATUS`: `private`
-- `YOUTUBE_CATEGORY_ID`: `24`
-- `YOUTUBE_TITLE_PREFIX`: `Meme Short`
-- `YOUTUBE_DESCRIPTION`: `Auto-generated meme short. #shorts #meme #funny`
-- `YOUTUBE_TAGS`: `shorts,meme,funny,viral`
+For email delivery, add these GitHub Actions secrets:
 
-### 5. Run the workflow manually the first time
+- `SMTP_HOST`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
 
-1. Open the `Actions` tab in GitHub.
-2. Click the `YouTube Upload` workflow.
-3. Click `Run workflow`.
-4. Wait for the job to finish.
-5. Check your email.
-6. If the video was small enough, it will be attached.
-7. If the video was too large, the email will include the GitHub Actions run link.
-8. If YouTube credentials were added, also check your YouTube account for the uploaded video.
+And these GitHub Actions variables:
 
-### 6. Let it run automatically every 2 hours
+- `EMAIL_TO`
+- `EMAIL_FROM`
+- `EMAIL_SUBJECT_PREFIX`
+- `EMAIL_ATTACHMENT_MAX_MB`
+- `SMTP_PORT`
+- `SMTP_USE_TLS`
 
-You do not need to do anything else after the first successful run.
+For Gmail SMTP, use an App Password instead of your normal Gmail password.
 
-The workflow in [`youtube-upload.yml`](/d:/meme_shorts_project/.github/workflows/youtube-upload.yml#L1) is already scheduled for:
+## Environment Variables
 
-```yaml
-0 */2 * * *
+See `.env.example` for all supported local settings:
+
+```env
+YOUTUBE_CLIENT_SECRETS_FILE=client_secrets.json
+YOUTUBE_TOKEN_FILE=token.pickle
+YOUTUBE_PRIVACY_STATUS=private
+YOUTUBE_CATEGORY_ID=24
+YOUTUBE_TITLE_PREFIX=Meme Short
+YOUTUBE_DESCRIPTION=Auto-generated meme short. #shorts #meme #funny
+YOUTUBE_TAGS=shorts,meme,funny,viral
+UPLOAD_INTERVAL_MINUTES=30
+EMAIL_TO=
+EMAIL_FROM=
+EMAIL_SUBJECT_PREFIX=Meme Short Ready
+EMAIL_ATTACHMENT_MAX_MB=20
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_USE_TLS=true
+GITHUB_ARTIFACT_NAME=generated-video
 ```
 
-That means every 2 hours in UTC.
+## Deployment
 
-### 7. How the email fallback works
+For Render, use the included `render.yaml` or configure a Python web service with:
 
-1. The workflow generates `static/final_video.mp4`.
-2. The script checks the file size.
-3. If the size is less than or equal to `EMAIL_ATTACHMENT_MAX_MB`, it sends the video as an email attachment.
-4. If the size is bigger, it sends an email with the GitHub Actions run link.
-5. The workflow also uploads the MP4 as a GitHub Actions artifact and keeps it for 7 days.
+```bash
+gunicorn app:app
+```
 
-### 8. Troubleshooting
+The Flask app is useful for manual video generation. The scheduled YouTube upload flow is handled by `auto_upload.py` and GitHub Actions.
 
-- If you do not receive email, check `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_TO`, and `SMTP_PORT`.
-- If you use Gmail, make sure you use an App Password.
-- If the GitHub workflow fails, open the failed run in the `Actions` tab and read the logs.
-- If YouTube upload stops working later, create a fresh `token.pickle` locally and update `YOUTUBE_TOKEN_PICKLE_B64`.
-- GitHub Actions schedules are in UTC and can be delayed slightly.
-- If the file is too large for email, the script will send the run link instead of failing.
+## Troubleshooting
+
+- If YouTube upload fails, check `YOUTUBE_CLIENT_SECRETS_JSON` and `YOUTUBE_TOKEN_PICKLE_B64`.
+- If the OAuth token expires or stops working, regenerate `token.pickle` locally and update the base64 secret.
+- If email does not send, check `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_TO`, and `SMTP_PORT`.
+- If the generated video is missing, confirm `assets/background_video.mp4` and `assets/background_music.mp3` exist.
+- If GitHub Actions fails, open the failed run and read the logs for the exact command error.

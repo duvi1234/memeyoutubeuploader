@@ -10,6 +10,7 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Optional
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -197,7 +198,12 @@ def get_authenticated_service():
             credentials = pickle.load(token_file)
 
     if credentials and credentials.expired and credentials.refresh_token:
-        credentials.refresh(Request())
+        try:
+            credentials.refresh(Request())
+        except RefreshError as exc:
+            print(f"Stored YouTube token could not be refreshed: {exc}")
+            print("Starting a new OAuth sign-in flow.")
+            credentials = None
 
     if not credentials or not credentials.valid:
         if not CLIENT_SECRETS_PATH.exists():
@@ -276,8 +282,8 @@ def run_single_cycle() -> Optional[str]:
     return video_id
 
 
-def run_scheduler(interval_hours: int) -> None:
-    interval_seconds = interval_hours * 60 * 60
+def run_scheduler(interval_minutes: int) -> None:
+    interval_seconds = interval_minutes * 60
     while True:
         try:
             run_single_cycle()
@@ -297,10 +303,16 @@ def parse_args():
         description="Generate meme shorts and upload them to YouTube on a schedule."
     )
     parser.add_argument(
+        "--interval-minutes",
+        type=int,
+        default=None,
+        help="Minutes to wait between uploads when running continuously.",
+    )
+    parser.add_argument(
         "--interval-hours",
         type=int,
-        default=int(get_env("UPLOAD_INTERVAL_HOURS", "2")),
-        help="Hours to wait between uploads when running continuously.",
+        default=None,
+        help="Hours to wait between uploads when running continuously. Deprecated; use --interval-minutes.",
     )
     parser.add_argument(
         "--run-once",
@@ -315,4 +327,9 @@ if __name__ == "__main__":
     if args.run_once:
         run_single_cycle()
     else:
-        run_scheduler(args.interval_hours)
+        interval_minutes = args.interval_minutes
+        if interval_minutes is None and args.interval_hours is not None:
+            interval_minutes = args.interval_hours * 60
+        if interval_minutes is None:
+            interval_minutes = int(get_env("UPLOAD_INTERVAL_MINUTES", "30"))
+        run_scheduler(interval_minutes)

@@ -1,6 +1,21 @@
 import os
 from pathlib import Path
 
+
+def normalize_imagemagick_binary() -> None:
+    imagemagick_binary = os.getenv("IMAGEMAGICK_BINARY", "").strip()
+    if not imagemagick_binary:
+        return
+
+    path = Path(imagemagick_binary)
+    if path.is_dir():
+        magick_exe = path / "magick.exe"
+        if magick_exe.is_file():
+            os.environ["IMAGEMAGICK_BINARY"] = str(magick_exe)
+
+
+normalize_imagemagick_binary()
+
 import moviepy.config as mpy_conf
 import requests
 from moviepy.editor import AudioFileClip, CompositeVideoClip, ImageClip, VideoFileClip
@@ -12,6 +27,7 @@ BACKGROUND_MUSIC_PATH = BASE_DIR / "assets" / "background_music.mp3"
 OUTPUT_PATH = BASE_DIR / "static" / "final_video.mp4"
 TEMP_DIR = BASE_DIR / "temp"
 MEME_API_URL = "https://meme-api.com/gimme"
+VIDEO_DURATION_SECONDS = 6
 
 
 def configure_imagemagick() -> None:
@@ -19,6 +35,10 @@ def configure_imagemagick() -> None:
     if imagemagick_binary:
         os.environ["IMAGEMAGICK_BINARY"] = imagemagick_binary
         mpy_conf.change_settings({"IMAGEMAGICK_BINARY": imagemagick_binary})
+
+
+def safe_console_text(value) -> str:
+    return str(value).encode("ascii", "backslashreplace").decode("ascii")
 
 
 def fetch_memes(count=2):
@@ -53,7 +73,7 @@ def generate_video():
     configure_imagemagick()
 
     memes = fetch_memes(2)
-    print("Meme Texts:", [m["title"] for m in memes])
+    print("Meme Texts:", [safe_console_text(m["title"]) for m in memes])
 
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -63,8 +83,8 @@ def generate_video():
     if not top_img or not bottom_img:
         raise RuntimeError("Could not download meme images.")
 
-    video = VideoFileClip(str(BACKGROUND_VIDEO_PATH)).subclip(0, 15)
-    audio = AudioFileClip(str(BACKGROUND_MUSIC_PATH)).subclip(0, 15)
+    video = VideoFileClip(str(BACKGROUND_VIDEO_PATH)).subclip(0, VIDEO_DURATION_SECONDS)
+    audio = AudioFileClip(str(BACKGROUND_MUSIC_PATH)).subclip(0, VIDEO_DURATION_SECONDS)
 
     top_y = int(video.h * 0.12)
     bottom_y = int(video.h * 0.65)
