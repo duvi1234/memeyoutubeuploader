@@ -66,6 +66,18 @@ def get_env(name: str, default: str) -> str:
     return value or default
 
 
+def get_env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name, "").strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
+def should_allow_interactive_auth() -> bool:
+    default = not get_env_bool("GITHUB_ACTIONS", False) and not get_env_bool("CI", False)
+    return get_env_bool("YOUTUBE_ALLOW_INTERACTIVE_AUTH", default)
+
+
 def build_title(now: datetime) -> str:
     prefix = get_env("YOUTUBE_TITLE_PREFIX", "Meme Short")
     return f"{prefix} | {now.strftime('%Y-%m-%d %H:%M')}"
@@ -200,9 +212,10 @@ def get_authenticated_service():
     if credentials and credentials.expired and credentials.refresh_token:
         try:
             credentials.refresh(Request())
+            with TOKEN_PATH.open("wb") as token_file:
+                pickle.dump(credentials, token_file)
         except RefreshError as exc:
             print(f"Stored YouTube token could not be refreshed: {exc}")
-            print("Starting a new OAuth sign-in flow.")
             credentials = None
 
     if not credentials or not credentials.valid:
@@ -210,6 +223,13 @@ def get_authenticated_service():
             raise FileNotFoundError(
                 f"Missing OAuth client file: {CLIENT_SECRETS_PATH}. "
                 "Provide client_secrets.json locally or set YOUTUBE_CLIENT_SECRETS_JSON."
+            )
+
+        if not should_allow_interactive_auth():
+            raise RuntimeError(
+                "YouTube OAuth requires browser-based sign-in, but interactive auth is disabled "
+                "in this environment. Re-authorize locally to generate a fresh token.pickle, "
+                "base64-encode it, and update the YOUTUBE_TOKEN_PICKLE_B64 secret."
             )
 
         flow = InstalledAppFlow.from_client_secrets_file(

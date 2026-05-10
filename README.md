@@ -106,7 +106,9 @@ client_secrets.json
 python auto_upload.py --run-once
 ```
 
-The first run opens a browser window so you can sign in to the YouTube channel and grant upload access. After authorization, the OAuth token is saved as `token.pickle`.
+The first local run opens a browser window so you can sign in to the YouTube channel and grant upload access. After authorization, the OAuth token is saved as `token.pickle`.
+
+GitHub Actions is headless, so it does not attempt browser sign-in. The workflow expects a valid pre-authorized `token.pickle` to be provided through `YOUTUBE_TOKEN_PICKLE_B64`.
 
 ## Local Scheduler
 
@@ -165,6 +167,8 @@ For YouTube uploads, add these GitHub Actions secrets:
 - `YOUTUBE_CLIENT_SECRETS_JSON`: the full contents of `client_secrets.json`
 - `YOUTUBE_TOKEN_PICKLE_B64`: base64-encoded contents of `token.pickle`
 
+The workflow cannot recover an expired or revoked YouTube token by itself. When that happens, refresh the token locally and upload the new base64 value to `YOUTUBE_TOKEN_PICKLE_B64`.
+
 Convert `token.pickle` to base64 in PowerShell:
 
 ```powershell
@@ -203,6 +207,7 @@ See `.env.example` for all supported local settings:
 ```env
 YOUTUBE_CLIENT_SECRETS_FILE=client_secrets.json
 YOUTUBE_TOKEN_FILE=token.pickle
+YOUTUBE_ALLOW_INTERACTIVE_AUTH=true
 YOUTUBE_PRIVACY_STATUS=private
 YOUTUBE_CATEGORY_ID=24
 YOUTUBE_TITLE_PREFIX=Meme Short
@@ -234,7 +239,8 @@ The Flask app is useful for manual video generation. The scheduled YouTube uploa
 ## Troubleshooting
 
 - If YouTube upload fails, check `YOUTUBE_CLIENT_SECRETS_JSON` and `YOUTUBE_TOKEN_PICKLE_B64`.
-- If the OAuth token expires or stops working, regenerate `token.pickle` locally and update the base64 secret.
+- If the OAuth token expires or stops working, regenerate `token.pickle` locally and update the base64 secret. GitHub Actions cannot complete the browser OAuth step for you.
+- If you want to disable local browser auth too, set `YOUTUBE_ALLOW_INTERACTIVE_AUTH=false`.
 - If email does not send, check `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_TO`, and `SMTP_PORT`.
 - If the generated video is missing, confirm `assets/background_video.mp4` and `assets/background_music.mp3` exist.
 - If GitHub Actions fails, open the failed run and read the logs for the exact command error.
