@@ -26,6 +26,14 @@ ARCHIVE_DIR = BASE_DIR / "uploads"
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
 
+class YouTubeUploadError(RuntimeError):
+    """Raised when the generated video cannot be uploaded to YouTube."""
+
+
+class YouTubeAuthenticationError(YouTubeUploadError):
+    """Raised when YouTube OAuth credentials are missing, expired, or revoked."""
+
+
 def load_dotenv(dotenv_path: Path) -> None:
     if not dotenv_path.exists():
         return
@@ -111,6 +119,10 @@ def should_upload_to_youtube() -> bool:
 def should_send_email() -> bool:
     required = ["EMAIL_TO", "SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD"]
     return all(os.getenv(name, "").strip() for name in required)
+
+
+def should_fail_on_youtube_upload_error() -> bool:
+    return get_env_bool("YOUTUBE_UPLOAD_FAILURE_FATAL", True)
 
 
 def get_github_run_url() -> str:
@@ -220,13 +232,13 @@ def get_authenticated_service():
 
     if not credentials or not credentials.valid:
         if not CLIENT_SECRETS_PATH.exists():
-            raise FileNotFoundError(
+            raise YouTubeAuthenticationError(
                 f"Missing OAuth client file: {CLIENT_SECRETS_PATH}. "
                 "Provide client_secrets.json locally or set YOUTUBE_CLIENT_SECRETS_JSON."
             )
 
         if not should_allow_interactive_auth():
-            raise RuntimeError(
+            raise YouTubeAuthenticationError(
                 "YouTube OAuth requires browser-based sign-in, but interactive auth is disabled "
                 "in this environment. Re-authorize locally to generate a fresh token.pickle, "
                 "base64-encode it, and update the YOUTUBE_TOKEN_PICKLE_B64 secret."
@@ -254,27 +266,32 @@ def archive_generated_video(source_path: Path) -> Path:
 
 
 def upload_video(video_path: Path, title: str, description: str) -> str:
-    youtube = get_authenticated_service()
-    request = youtube.videos().insert(
-        part="snippet,status",
-        body={
-            "snippet": {
-                "title": title,
-                "description": description,
-                "tags": get_tags(),
-                "categoryId": get_env("YOUTUBE_CATEGORY_ID", "24"),
+    try:
+        youtube = get_authenticated_service()
+        request = youtube.videos().insert(
+            part="snippet,status",
+            body={
+                "snippet": {
+                    "title": title,
+                    "description": description,
+                    "tags": get_tags(),
+                    "categoryId": get_env("YOUTUBE_CATEGORY_ID", "24"),
+                },
+                "status": {
+                    "privacyStatus": get_env("YOUTUBE_PRIVACY_STATUS", "private"),
+                    "selfDeclaredMadeForKids": False,
+                },
             },
-            "status": {
-                "privacyStatus": get_env("YOUTUBE_PRIVACY_STATUS", "private"),
-                "selfDeclaredMadeForKids": False,
-            },
-        },
-        media_body=MediaFileUpload(str(video_path), resumable=True),
-    )
+            media_body=MediaFileUpload(str(video_path), resumable=True),
+        )
 
-    response = None
-    while response is None:
-        _, response = request.next_chunk()
+        response = None
+        while response is None:
+            _, response = request.next_chunk()
+    except YouTubeUploadError:
+        raise
+    except HttpError as exc:
+        raise YouTubeUploadError(f"YouTube API error: {exc}") from exc
 
     return response["id"]
 
@@ -289,12 +306,19 @@ def run_single_cycle() -> Optional[str]:
     video_id = None
 
     if should_upload_to_youtube():
-        video_id = upload_video(archived_video, title, description)
-        youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-        print(
-            f"[{datetime.now().isoformat(timespec='seconds')}] Uploaded {archived_video.name} "
-            f"as {youtube_url}"
-        )
+        try:
+            video_id = upload_video(archived_video, title, description)
+            youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+            print(
+                f"[{datetime.now().isoformat(timespec='seconds')}] Uploaded {archived_video.name} "
+                f"as {youtube_url}"
+            )
+        except YouTubeUploadError as exc:
+            print(f"YouTube upload failed: {exc}")
+            send_video_email(archived_video, title, youtube_url)
+            if should_fail_on_youtube_upload_error():
+                raise
+            return None
     else:
         print("Skipping YouTube upload because YouTube credentials are not configured.")
 

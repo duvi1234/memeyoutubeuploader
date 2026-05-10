@@ -182,6 +182,7 @@ Optional YouTube variables:
 - `YOUTUBE_TITLE_PREFIX`: default `Meme Short`
 - `YOUTUBE_DESCRIPTION`: default `Auto-generated meme short. #shorts #meme #funny`
 - `YOUTUBE_TAGS`: default `shorts,meme,funny,viral`
+- `YOUTUBE_UPLOAD_FAILURE_FATAL`: default `true`. When `true`, the GitHub Actions job fails if YouTube upload was configured but could not complete. Email delivery and artifact upload still run after the video is generated.
 
 For email delivery, add these GitHub Actions secrets:
 
@@ -213,6 +214,7 @@ YOUTUBE_CATEGORY_ID=24
 YOUTUBE_TITLE_PREFIX=Meme Short
 YOUTUBE_DESCRIPTION=Auto-generated meme short. #shorts #meme #funny
 YOUTUBE_TAGS=shorts,meme,funny,viral
+YOUTUBE_UPLOAD_FAILURE_FATAL=true
 UPLOAD_INTERVAL_MINUTES=30
 EMAIL_TO=
 EMAIL_FROM=
@@ -240,6 +242,7 @@ The Flask app is useful for manual video generation. The scheduled YouTube uploa
 
 - If YouTube upload fails, check `YOUTUBE_CLIENT_SECRETS_JSON` and `YOUTUBE_TOKEN_PICKLE_B64`.
 - If the OAuth token expires or stops working, regenerate `token.pickle` locally and update the base64 secret. GitHub Actions cannot complete the browser OAuth step for you.
+- If you want video generation, email, and artifact upload to keep succeeding while you fix YouTube OAuth, set the GitHub Actions variable `YOUTUBE_UPLOAD_FAILURE_FATAL=false`.
 - If you want to disable local browser auth too, set `YOUTUBE_ALLOW_INTERACTIVE_AUTH=false`.
 - If email does not send, check `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_TO`, and `SMTP_PORT`.
 - If the generated video is missing, confirm `assets/background_video.mp4` and `assets/background_music.mp3` exist.
