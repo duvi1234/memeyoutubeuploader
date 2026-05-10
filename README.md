@@ -9,7 +9,7 @@ This project generates short meme videos and can upload them to YouTube automati
 - Uses `assets/background_video.mp4` and `assets/background_music.mp3`.
 - Provides a Flask web page for generating, previewing, and downloading `static/final_video.mp4`.
 - Includes `auto_upload.py` for scheduled YouTube uploads.
-- Runs automatically every 30 minutes through GitHub Actions.
+- Runs automatically once per hour through GitHub Actions.
 - Can send the generated MP4 by email when SMTP settings are configured.
 - Uploads the generated video as a GitHub Actions artifact for 7 days.
 
@@ -112,7 +112,7 @@ GitHub Actions is headless, so it does not attempt browser sign-in. The workflow
 
 ## Local Scheduler
 
-Run continuously with the default 30-minute interval:
+Run continuously with the default 60-minute interval:
 
 ```bash
 python auto_upload.py
@@ -121,13 +121,13 @@ python auto_upload.py
 Change the interval with either:
 
 ```env
-UPLOAD_INTERVAL_MINUTES=30
+UPLOAD_INTERVAL_MINUTES=60
 ```
 
 or:
 
 ```bash
-python auto_upload.py --interval-minutes 30
+python auto_upload.py --interval-minutes 60
 ```
 
 The older `--interval-hours` flag still works, but `--interval-minutes` is preferred.
@@ -138,17 +138,17 @@ On Windows, use Task Scheduler if you want uploads to continue after reboots. Co
 python auto_upload.py --run-once
 ```
 
-every 30 minutes.
+every 60 minutes.
 
 ## GitHub Actions Automation
 
 The workflow at `.github/workflows/youtube-upload.yml` can be run manually and is also scheduled for:
 
 ```yaml
-*/30 * * * *
+0 * * * *
 ```
 
-That means one run every 30 minutes in UTC. GitHub schedules can be delayed slightly.
+That means one run at the start of every hour in UTC. GitHub schedules can be delayed slightly.
 
 The workflow:
 
@@ -215,7 +215,7 @@ YOUTUBE_TITLE_PREFIX=Meme Short
 YOUTUBE_DESCRIPTION=Auto-generated meme short. #shorts #meme #funny
 YOUTUBE_TAGS=shorts,meme,funny,viral
 YOUTUBE_UPLOAD_FAILURE_FATAL=true
-UPLOAD_INTERVAL_MINUTES=30
+UPLOAD_INTERVAL_MINUTES=60
 EMAIL_TO=
 EMAIL_FROM=
 EMAIL_SUBJECT_PREFIX=Meme Short Ready

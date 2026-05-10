@@ -375,5 +375,5 @@ if __name__ == "__main__":
         if interval_minutes is None and args.interval_hours is not None:
             interval_minutes = args.interval_hours * 60
         if interval_minutes is None:
-            interval_minutes = int(get_env("UPLOAD_INTERVAL_MINUTES", "30"))
+            interval_minutes = int(get_env("UPLOAD_INTERVAL_MINUTES", "60"))
         run_scheduler(interval_minutes)
