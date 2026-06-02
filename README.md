@@ -110,6 +110,14 @@ The first local run opens a browser window so you can sign in to the YouTube cha
 
 GitHub Actions is headless, so it does not attempt browser sign-in. The workflow expects a valid pre-authorized `token.pickle` to be provided through `YOUTUBE_TOKEN_PICKLE_B64`.
 
+If GitHub Actions reports `invalid_grant: Token has been expired or revoked`, refresh the token locally without generating a video:
+
+```bash
+python auto_upload.py --reauthorize-youtube
+```
+
+Sign in in the browser window that opens, then copy the printed value into the GitHub Actions secret named `YOUTUBE_TOKEN_PICKLE_B64`.
+
 ## Local Scheduler
 
 Run continuously with the default 60-minute interval:
@@ -175,6 +183,12 @@ Convert `token.pickle` to base64 in PowerShell:
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("token.pickle"))
 ```
 
+Or have the script print the value:
+
+```bash
+python auto_upload.py --print-youtube-token-secret
+```
+
 Optional YouTube variables:
 
 - `YOUTUBE_PRIVACY_STATUS`: default `private`
@@ -216,6 +230,7 @@ YOUTUBE_DESCRIPTION=Auto-generated meme short. #shorts #meme #funny
 YOUTUBE_TAGS=shorts,meme,funny,viral
 YOUTUBE_UPLOAD_FAILURE_FATAL=true
 UPLOAD_INTERVAL_MINUTES=60
+MEME_API_TRUST_ENV=false
 EMAIL_TO=
 EMAIL_FROM=
 EMAIL_SUBJECT_PREFIX=Meme Short Ready
@@ -246,4 +261,5 @@ The Flask app is useful for manual video generation. The scheduled YouTube uploa
 - If you want to disable local browser auth too, set `YOUTUBE_ALLOW_INTERACTIVE_AUTH=false`.
 - If email does not send, check `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_TO`, and `SMTP_PORT`.
 - If the generated video is missing, confirm `assets/background_video.mp4` and `assets/background_music.mp3` exist.
+- If meme fetching fails because of a bad local proxy, keep `MEME_API_TRUST_ENV=false`. Set it to `true` only when your network requires proxy environment variables.
 - If GitHub Actions fails, open the failed run and read the logs for the exact command error.

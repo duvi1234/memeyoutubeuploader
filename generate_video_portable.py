@@ -1,4 +1,5 @@
 import os
+from contextlib import suppress
 from pathlib import Path
 
 
@@ -30,6 +31,19 @@ MEME_API_URL = "https://meme-api.com/gimme"
 VIDEO_DURATION_SECONDS = 6
 
 
+def get_env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name, "").strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
+def get_requests_session() -> requests.Session:
+    session = requests.Session()
+    session.trust_env = get_env_bool("MEME_API_TRUST_ENV", False)
+    return session
+
+
 def configure_imagemagick() -> None:
     imagemagick_binary = os.getenv("IMAGEMAGICK_BINARY", "").strip()
     if imagemagick_binary:
@@ -44,22 +58,27 @@ def safe_console_text(value) -> str:
 def fetch_memes(count=2):
     print("Fetching memes...")
     memes = []
+    session = get_requests_session()
     for _ in range(count):
         try:
-            response = requests.get(MEME_API_URL, timeout=20)
+            response = session.get(MEME_API_URL, timeout=20)
             response.raise_for_status()
             payload = response.json()
             memes.append({"url": payload["url"], "title": payload["title"]})
         except Exception as exc:
             print("Failed to fetch meme:", exc)
-            memes.append({"url": None, "title": "Funny Meme!"})
+    if len(memes) < count:
+        raise RuntimeError(
+            f"Could not fetch {count} meme(s) from {MEME_API_URL}. "
+            "If your network requires a proxy, set MEME_API_TRUST_ENV=true."
+        )
     return memes
 
 
-def download_image(url, filename):
+def download_image(url, filename, session):
     try:
         print(f"Downloading meme image from {url}")
-        response = requests.get(url, timeout=30)
+        response = session.get(url, timeout=30)
         response.raise_for_status()
         with open(filename, "wb") as file_handle:
             file_handle.write(response.content)
@@ -78,8 +97,9 @@ def generate_video():
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    top_img = download_image(memes[0]["url"], TEMP_DIR / "temp_meme1.jpg")
-    bottom_img = download_image(memes[1]["url"], TEMP_DIR / "temp_meme2.jpg")
+    session = get_requests_session()
+    top_img = download_image(memes[0]["url"], TEMP_DIR / "temp_meme1.jpg", session)
+    bottom_img = download_image(memes[1]["url"], TEMP_DIR / "temp_meme2.jpg", session)
     if not top_img or not bottom_img:
         raise RuntimeError("Could not download meme images.")
 
@@ -104,16 +124,24 @@ def generate_video():
     )
 
     final = CompositeVideoClip([video, top_clip, bottom_clip]).set_audio(audio)
+    temp_audio_path = TEMP_DIR / f"final_video_audio_{os.getpid()}.mp3"
 
     print("Exporting final video to:", OUTPUT_PATH)
     try:
-        final.write_videofile(str(OUTPUT_PATH), fps=24)
+        final.write_videofile(
+            str(OUTPUT_PATH),
+            fps=24,
+            temp_audiofile=str(temp_audio_path),
+            remove_temp=False,
+        )
     finally:
         final.close()
         top_clip.close()
         bottom_clip.close()
         audio.close()
         video.close()
+        with suppress(OSError):
+            temp_audio_path.unlink()
 
 
 if __name__ == "__main__":

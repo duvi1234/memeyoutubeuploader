@@ -208,6 +208,10 @@ def send_video_email(video_path: Path, title: str, youtube_url: str = "") -> Non
 
 
 def get_authenticated_service():
+    return build("youtube", "v3", credentials=get_youtube_credentials())
+
+
+def get_youtube_credentials(*, force_reauthorize: bool = False):
     credentials = None
 
     write_secret_file_from_env(
@@ -217,7 +221,7 @@ def get_authenticated_service():
         "YOUTUBE_TOKEN_PICKLE_B64", TOKEN_PATH, base64_encoded=True
     )
 
-    if TOKEN_PATH.exists():
+    if TOKEN_PATH.exists() and not force_reauthorize:
         with TOKEN_PATH.open("rb") as token_file:
             credentials = pickle.load(token_file)
 
@@ -252,7 +256,14 @@ def get_authenticated_service():
         with TOKEN_PATH.open("wb") as token_file:
             pickle.dump(credentials, token_file)
 
-    return build("youtube", "v3", credentials=credentials)
+    return credentials
+
+
+def print_youtube_token_secret(*, force_reauthorize: bool = False) -> None:
+    get_youtube_credentials(force_reauthorize=force_reauthorize)
+    token_b64 = base64.b64encode(TOKEN_PATH.read_bytes()).decode("ascii")
+    print("\nUpdate the GitHub Actions secret YOUTUBE_TOKEN_PICKLE_B64 with this value:\n")
+    print(token_b64)
 
 
 def archive_generated_video(source_path: Path) -> Path:
@@ -363,12 +374,24 @@ def parse_args():
         action="store_true",
         help="Generate and upload a single video, then exit.",
     )
+    parser.add_argument(
+        "--print-youtube-token-secret",
+        action="store_true",
+        help="Print token.pickle as base64 for the YOUTUBE_TOKEN_PICKLE_B64 secret.",
+    )
+    parser.add_argument(
+        "--reauthorize-youtube",
+        action="store_true",
+        help="Run browser OAuth again before printing the base64 token secret.",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    if args.run_once:
+    if args.print_youtube_token_secret or args.reauthorize_youtube:
+        print_youtube_token_secret(force_reauthorize=args.reauthorize_youtube)
+    elif args.run_once:
         run_single_cycle()
     else:
         interval_minutes = args.interval_minutes
